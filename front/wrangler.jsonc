@@ -1,0 +1,30 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "to2",
+  "main": "./worker/index.ts",
+  // Kept at or below the newest date the bundled test runtime supports, so the
+  // Seam B tests run against the same runtime semantics we deploy with.
+  "compatibility_date": "2026-08-22",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+
+  // Production values live at the top level rather than under an `env` block:
+  // the build plugin generates its own wrangler config from this one and does
+  // not carry named environments through, so an `env.production` section is
+  // silently ignored at deploy time. Local overrides go in `.dev.vars`.
+  "vars": {
+    "API_ORIGIN": "https://api.to2.at"
+  },
+  "routes": [{ "pattern": "to2.at", "custom_domain": true }],
+
+  "assets": {
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    // Without this, a browser navigation to `/12` is a "navigation request" and
+    // Cloudflare answers it from the SPA fallback WITHOUT invoking the Worker,
+    // so Code resolution would never run. Listing "/*" runs the Worker for
+    // everything; the negation keeps the hashed bundle served as a free static
+    // asset (and still served if the Worker request limit is ever hit).
+    "run_worker_first": ["/*", "!/assets/*"]
+  }
+}

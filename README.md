@@ -1,0 +1,93 @@
+# to2.at
+
+카카오 계정으로 만드는 짧은 주소. 용어는 [CONTEXT.md](./CONTEXT.md), 결정 배경은 [docs/adr/](./docs/adr)에 있습니다.
+
+```
+back/   Kotlin · Spring Boot 4.1 · JDK 25 · PostgreSQL 18   → Railway (api.to2.at)
+front/  Vite · React · TanStack Router · Cloudflare Workers → Cloudflare (to2.at)
+```
+
+## 로컬 실행
+
+Docker와 JDK 25, Node가 필요합니다.
+
+```bash
+cd back && ./gradlew bootRun
+```
+
+PostgreSQL 18은 `back/compose.yaml`에서 자동으로 뜹니다.
+
+```bash
+cd front && pnpm install && pnpm dev
+```
+
+`http://localhost:5173`에서 열립니다. `pnpm dev`는 Worker까지 함께 돌리므로
+`http://localhost:5173/1` 같은 Code 경로도 실제와 같은 경로를 탑니다.
+
+개발용 샘플 계정(`user1`/`user1` 등)을 쓰려면 `dev` 프로필로 기동하세요:
+
+```bash
+cd back && SPRING_PROFILES_ACTIVE=dev ./gradlew bootRun
+```
+
+## 테스트
+
+```bash
+cd back && ./gradlew test     # Seam A — 실제 PostgreSQL 18 컨테이너 위에서 전체 스택
+cd front && pnpm test         # Seam B — 실제 Workers 런타임에서 fetch 핸들러
+```
+
+Seam은 이 둘뿐입니다. 서비스나 리포지토리를 직접 부르는 테스트는 두지 않습니다.
+
+## 배포
+
+### 백엔드 (Railway)
+
+- 빌더는 **Dockerfile**로 둡니다. 기본 빌더는 Gradle toolchain을 읽지 않아 JDK 21로 빌드합니다
+- PostgreSQL은 **`:18`로 명시 고정**합니다. 떠 있는 기본 태그는 더 낮은 메이저로 해석됩니다
+- Root Directory는 `back/`, Watch Path는 `back/**` — watch path는 Root Directory와 무관하게 `/`부터 평가됩니다
+- 환경변수:
+
+  | 변수 | 설명 |
+  |---|---|
+  | `SPRING_PROFILES_ACTIVE` | `prod` |
+  | `PGHOST` `PGPORT` `PGDATABASE` `PGUSER` `PGPASSWORD` | Postgres 서비스 참조 변수. **`DATABASE_URL`은 libpq URI라 그대로 쓸 수 없습니다** |
+  | `KAKAO_CLIENT_ID` `KAKAO_CLIENT_SECRET` | 카카오 REST API 키와 시크릿 |
+  | `ADMIN_PASSWORD` | Operator 비밀번호. 이 변수 외의 어디에도 두지 않습니다 |
+
+### 프론트 (Cloudflare Workers)
+
+```bash
+cd front && npx wrangler deploy
+```
+
+운영 값은 `wrangler.jsonc` **최상위**에 둡니다. 빌드 플러그인이 이 파일로부터
+자체 설정을 생성하는데 named environment를 그대로 넘기지 않아서, `env.production`
+블록은 배포 시 조용히 무시됩니다. 로컬 전용 값은 `.dev.vars`에 둡니다.
+
+### 배포 상태
+
+- 백엔드: Railway, **Southeast Asia (Singapore)**. Root Directory `/back`이라
+  `back/Dockerfile`이 자동으로 쓰입니다 — Railway의 `Builder` 설정에는 Dockerfile
+  항목이 없고, 루트에 Dockerfile이 있으면 그걸 씁니다
+- `watchPatterns`는 비워둡니다. GitHub 연동 배포용인데 CLI 업로드 배포까지
+  가로채 빌드를 스킵시킵니다
+- 리전 변경은 CLI/GraphQL로는 반영되지 않습니다. 대시보드의
+  Settings → Scale → Regions & Replicas에서 바꿔야 합니다
+
+### 카카오 개발자 콘솔에서 직접 해야 하는 것
+
+코드로 대신할 수 없는 부분입니다.
+
+1. **OpenID Connect를 켭니다.** 켜지 않으면 ID 토큰이 나오지 않고 로그인이 동작하지 않습니다
+2. **Redirect URI를 정확히 등록합니다.** 끝 슬래시 하나만 달라도 다른 URI로 취급됩니다
+   - 개발: `http://localhost:8080/login/oauth2/code/kakao`
+   - 운영: `https://api.to2.at/login/oauth2/code/kakao`
+3. 동의 항목은 `profile_nickname`, `account_email`입니다. `account_email`은 **Biz 앱 전용**이고,
+   Biz 앱이어도 값이 비어 있을 수 있습니다
+
+### 첫 공유 전에 확인할 것
+
+카카오의 링크 미리보기 캐시는 URL당 약 1시간이고 **일괄 초기화 수단이 없습니다**.
+초기화는 로그인이 필요한 공유 디버거에서 URL 하나씩만 가능하므로, 처음 공유하기 전에
+`to2.at/<Code>`를 카카오톡에 붙여 Target의 카드가 뜨는지 확인하세요.

@@ -1,0 +1,32 @@
+# Gradle / Kotlin
+back/.gradle/
+back/build/
+back/bin/
+!back/gradle/wrapper/gradle-wrapper.jar
+
+# Node / Vite
+front/node_modules/
+front/dist/
+front/.wrangler/
+.vite/
+
+# Env & secrets.
+# Vite's .env.development / .env.production hold origins, not secrets, and the
+# production build is wrong without them — so they are tracked deliberately.
+# Anything actually secret goes in a plain .env, which stays out.
+.env
+.env.local
+.env.*.local
+!.env.example
+!front/.env.development
+!front/.env.production
+
+# IDE / OS
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

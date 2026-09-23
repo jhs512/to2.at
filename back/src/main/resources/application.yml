@@ -1,0 +1,53 @@
+spring:
+  application:
+    name: to2
+  datasource:
+    url: jdbc:postgresql://localhost:5432/to2
+    username: to2
+    password: to2
+  jpa:
+    hibernate:
+      # Flyway owns the schema (ADR 0003). Hibernate only checks it matches.
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+  session:
+    # The session schema ships in the Flyway migrations, not via Spring Session's
+    # own initializer, so there is exactly one source of truth for the schema.
+    jdbc:
+      initialize-schema: never
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # Only health is reachable; the admin surface is not an API.
+        include: health
+
+to2:
+  session-cookie:
+    # Off locally so http://localhost works; the deployment turns it on.
+    # SameSite and HttpOnly are pinned in code, not here: they are not settings
+    # we want to be able to weaken by accident.
+    secure: false
+  kakao:
+    # Kakao REST API key and secret. Blank locally: the app still starts, and
+    # login is simply unavailable until they are set.
+    client-id: ${KAKAO_CLIENT_ID:}
+    client-secret: ${KAKAO_CLIENT_SECRET:}
+  # The origin the browser loads the SPA from. Used for CORS.
+  site-origin: http://localhost:5173
+  # Targets pointing back at this host are rejected to prevent redirect loops.
+  short-host: to2.at
+  admin:
+    username: admin
+    # Environment only. A password in a migration or in the repository is a
+    # password in everybody's git history.
+    password: ${ADMIN_PASSWORD:}
+    max-failed-attempts: 5
+    lock-duration: 15m
+  moderation:
+    # Reports from this many distinct sources suspend a Link without waiting for
+    # the Operator — a safety net, not the primary path.
+    auto-suspend-after-reports: 3

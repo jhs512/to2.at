@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>to2.at</title>
+    <!--
+      Every short address shares this shell, so these tags are the same for all
+      of them. Per-Code previews come from the Worker redirecting crawlers to the
+      Target instead (ADR 0004) — link preview crawlers do not run JavaScript, so
+      nothing the SPA sets at runtime would ever be seen.
+    -->
+    <meta property="og:site_name" content="to2.at" />
+    <meta property="og:title" content="to2.at" />
+    <meta property="og:description" content="카카오 계정으로 만드는 짧은 주소" />
+    <link
+      rel="stylesheet"
+      as="style"
+      crossorigin
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
+    />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

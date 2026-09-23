@@ -1,0 +1,5 @@
+# workerd and esbuild ship platform binaries whose install scripts must run;
+# without them the Workers runtime (and therefore the Seam B tests) is absent.
+allowBuilds:
+  esbuild: true
+  workerd: true

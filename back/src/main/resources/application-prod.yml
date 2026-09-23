@@ -1,0 +1,27 @@
+# Production overrides. Everything secret comes from the environment.
+#
+# The datasource is supplied entirely as SPRING_DATASOURCE_* environment
+# variables rather than assembled here. The platform injects DATABASE_URL as a
+# libpq URI (postgresql://user:pw@host/db) that the JDBC driver cannot parse, so
+# the deployment builds a JDBC URL from the individual connection variables
+# instead. See README.
+spring:
+  jpa:
+    open-in-view: false
+
+server:
+  # The platform terminates TLS and forwards over plain HTTP, so without this
+  # every absolute URL the framework builds comes out as http://. That includes
+  # the OAuth redirect_uri, which then fails to match the https:// one
+  # registered with Kakao and breaks login outright.
+  #
+  # Safe here only because the edge sets X-Forwarded-* itself and overwrites
+  # anything a client sends.
+  forward-headers-strategy: framework
+
+to2:
+  site-origin: https://to2.at
+  short-host: to2.at
+  session-cookie:
+    # HTTPS everywhere in production, so the cookie should never travel in clear.
+    secure: true
