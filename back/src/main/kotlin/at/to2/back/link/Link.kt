@@ -15,6 +15,9 @@ import jakarta.persistence.SequenceGenerator
 import jakarta.persistence.Table
 import java.time.Instant
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Modifying
+import org.springframework.data.jpa.repository.Query
+import org.springframework.data.repository.query.Param
 
 enum class LinkState {
     ACTIVE,
@@ -83,4 +86,16 @@ class Link(
 
 interface LinkRepository : JpaRepository<Link, Long> {
     fun findAllByOwnerIdOrderByIdDesc(ownerId: Long): List<Link>
+
+    // Update only Target: a concurrent Suspension or deletion must survive.
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(
+        value = "UPDATE link SET target = :target WHERE id = :id AND owner_id = :ownerId AND state <> 'DELETED'",
+        nativeQuery = true,
+    )
+    fun updateOwnedTarget(
+        @Param("id") id: Long,
+        @Param("ownerId") ownerId: Long,
+        @Param("target") target: String,
+    ): Int
 }

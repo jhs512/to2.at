@@ -45,6 +45,10 @@ Windows에서는 개인 키를 DPAPI로 암호화해 저장합니다. `TO2_API_K
 
 API는 `Authorization: Bearer <key>`를 받습니다. 원문 대신 검증용 해시만
 저장하며 기존 카카오 로그인과 Operator 경로는 그대로 유지합니다.
+같은 단축주소의 Target을 수정하려면 `PATCH /links/{code}`에
+`{"target":"https://example.com/new"}`를 보냅니다. 성공하면 200 LinkResponse를
+반환하고 Code·단축주소·상태를 유지합니다. 본인 Link만 수정할 수 있고 삭제된
+Link는 404로 거부합니다. Suspension 중인 Link는 Target을 바꿔도 중지 상태를 유지합니다.
 배포 시 Flyway V5가 API 키 테이블을 추가합니다. 기존 Link/Owner 데이터는
 변경하지 않습니다. 서버 배포 후 프론트 배포, 본인 카카오 로그인과 키 발급,
 로컬 `auth-set` 순서로 운영 적용합니다.

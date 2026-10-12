@@ -11,12 +11,14 @@ import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
 data class CreateLinkRequest(val target: String = "")
+data class UpdateLinkRequest(val target: String = "")
 
 data class LinkResponse(
     val code: String,
@@ -63,6 +65,28 @@ class LinkController(
             .findAllByOwnerIdOrderByIdDesc(owner.id!!)
             .filter { it.state != LinkState.DELETED }
             .map { it.toResponse(props.shortHost) }
+    }
+
+    @PatchMapping("/{code}")
+    @Transactional
+    fun update(
+        auth: Authentication,
+        @PathVariable code: String,
+        @RequestBody request: UpdateLinkRequest,
+    ): ResponseEntity<LinkResponse> {
+        val owner = ownerService.requireOwner(auth)
+        val id = Code.parse(code) ?: return ResponseEntity.notFound().build()
+        val link = links.findById(id).orElse(null) ?: return ResponseEntity.notFound().build()
+        if (link.owner.id != owner.id || link.state == LinkState.DELETED) {
+            return ResponseEntity.notFound().build()
+        }
+        val target = validator.validate(request.target)
+        // A conditional field-only update also handles deletion between read
+        // and write, and never overwrites moderation state with a stale copy.
+        if (links.updateOwnedTarget(id, owner.id!!, target) == 0) {
+            return ResponseEntity.notFound().build()
+        }
+        return ResponseEntity.ok(links.findById(id).orElseThrow().toResponse(props.shortHost))
     }
 
     @DeleteMapping("/{code}")

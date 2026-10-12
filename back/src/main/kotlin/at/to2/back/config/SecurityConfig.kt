@@ -73,7 +73,7 @@ class SecurityConfig {
             CorsConfiguration().apply {
                 // Exactly the site origin, never a wildcard: credentials are sent.
                 allowedOrigins = listOf(props.siteOrigin)
-                allowedMethods = listOf("GET", "POST", "DELETE", "OPTIONS")
+                allowedMethods = listOf("GET", "POST", "PATCH", "DELETE", "OPTIONS")
                 allowedHeaders = listOf("Content-Type")
                 allowCredentials = true
             }
