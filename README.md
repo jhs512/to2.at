@@ -30,6 +30,25 @@ cd front && pnpm install && pnpm dev
 cd back && SPRING_PROFILES_ACTIVE=dev ./gradlew bootRun
 ```
 
+## Owner API 키
+
+카카오 로그인 후 대시보드의 **API 키**에서 이름을 입력하고 키를 발급합니다.
+원문은 최초 발급 화면에서만 표시됩니다. 키를 가진 도구는 해당 Owner의 Link를
+생성·조회·삭제할 수 있으며, 사이트에서 폐기하면 다음 요청부터 거부됩니다.
+키 관리는 카카오 로그인이 필요합니다.
+
+개인 스킬 소스는 `tools/to2-at-skill/`입니다. 설치된 스킬 폴더에서
+`python scripts/to2.py auth-set`을 대화형 터미널로 실행해 숨김 입력으로 등록한 뒤
+`python scripts/to2.py create https://example.com`을 사용합니다.
+Windows에서는 개인 키를 DPAPI로 암호화해 저장합니다. `TO2_API_KEY` 또는
+`TO2_API_KEY_FILE`로 준비된 비밀을 사용할 수도 있습니다.
+
+API는 `Authorization: Bearer <key>`를 받습니다. 원문 대신 검증용 해시만
+저장하며 기존 카카오 로그인과 Operator 경로는 그대로 유지합니다.
+배포 시 Flyway V5가 API 키 테이블을 추가합니다. 기존 Link/Owner 데이터는
+변경하지 않습니다. 서버 배포 후 프론트 배포, 본인 카카오 로그인과 키 발급,
+로컬 `auth-set` 순서로 운영 적용합니다.
+
 ## 테스트
 
 ```bash

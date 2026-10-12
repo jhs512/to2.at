@@ -39,6 +39,17 @@ export interface Me {
 
 export type LinkState = 'ACTIVE' | 'DELETED' | 'SUSPENDED'
 
+export interface ApiKeyMetadata {
+  id: number
+  name: string
+  createdAt: string
+  revokedAt?: string | null
+}
+
+export interface IssuedApiKey extends ApiKeyMetadata {
+  key: string
+}
+
 export interface Link {
   code: string
   shortUrl: string
@@ -48,6 +59,14 @@ export interface Link {
 }
 
 export const api = {
+  listApiKeys: () => request<ApiKeyMetadata[]>('/api-keys'),
+  createApiKey: (name: string) =>
+    request<IssuedApiKey>('/api-keys', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name }),
+    }),
+  revokeApiKey: (id: number) => request<void>(`/api-keys/${id}`, { method: 'DELETE' }),
   me: () => request<Me>('/me'),
   listLinks: () => request<Link[]>('/links'),
   createLink: (target: string) =>

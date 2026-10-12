@@ -2,6 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useCallback, useEffect, useState } from 'react'
 
 import { ApiError, api, logout, startKakaoLogin, type Link, type Me } from '../lib/api'
+import { ApiKeys } from '../components/ApiKeys'
 
 export const Route = createFileRoute('/')({ component: Home })
 
@@ -84,6 +85,8 @@ function Dashboard({ me }: { me: Me }) {
           </button>
         </div>
       </header>
+
+      <ApiKeys />
 
       <form onSubmit={submit} className="mt-8 flex gap-2">
         <input

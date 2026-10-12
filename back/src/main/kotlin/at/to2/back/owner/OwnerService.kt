@@ -1,5 +1,7 @@
 package at.to2.back.owner
 
+import at.to2.back.apikey.ApiKeyPrincipal
+
 import at.to2.back.admin.LocalAccountRepository
 import org.springframework.security.core.Authentication
 import org.springframework.security.core.userdetails.UserDetails
@@ -45,6 +47,7 @@ class OwnerService(
     @Transactional
     fun fromAuthentication(auth: Authentication?): Owner? =
         when (val principal = auth?.principal) {
+            is ApiKeyPrincipal -> owners.findById(principal.ownerId).orElse(null)
             is OidcUser -> fromPrincipal(principal)
             is UserDetails ->
                 accounts.findByUsername(principal.username)?.ownerId?.let {
