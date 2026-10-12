@@ -14,6 +14,8 @@ import jakarta.persistence.ManyToOne
 import jakarta.persistence.SequenceGenerator
 import jakarta.persistence.Table
 import java.time.Instant
+import java.util.UUID
+import java.time.temporal.ChronoUnit
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
@@ -55,6 +57,7 @@ class Link(
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "owner_id", nullable = false)
     var owner: Owner,
+    @Column(name = "create_request_id", updatable = false) val createRequestId: UUID? = null,
 ) {
     /**
      * The primary key IS the Code. Allocation size is 1 on purpose: the default
@@ -71,7 +74,8 @@ class Link(
     var state: LinkState = LinkState.ACTIVE
 
     @Column(name = "created_at", nullable = false, updatable = false)
-    var createdAt: Instant = Instant.now()
+    // Match PostgreSQL precision so an initial response and its replay agree.
+    var createdAt: Instant = Instant.now().truncatedTo(ChronoUnit.MICROS)
 
     @Column(name = "state_changed_at") var stateChangedAt: Instant? = null
 
@@ -86,6 +90,7 @@ class Link(
 
 interface LinkRepository : JpaRepository<Link, Long> {
     fun findAllByOwnerIdOrderByIdDesc(ownerId: Long): List<Link>
+    fun findByOwnerIdAndCreateRequestId(ownerId: Long, createRequestId: UUID): Link?
 
     // Update only Target: a concurrent Suspension or deletion must survive.
     @Modifying(clearAutomatically = true, flushAutomatically = true)

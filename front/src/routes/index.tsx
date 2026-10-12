@@ -3,12 +3,35 @@ import { useCallback, useEffect, useState } from 'react'
 
 import { ApiError, api, logout, startKakaoLogin, type Link, type Me } from '../lib/api'
 import { ApiKeys } from '../components/ApiKeys'
+import { ExternalCreateCard } from '../components/ExternalCreate'
+import { captureExternalCreate, externalCreatePath, type ExternalCreate } from '../lib/external-create'
 
 export const Route = createFileRoute('/')({ component: Home })
 
 function Home() {
   const [me, setMe] = useState<Me | null>(null)
   const [checked, setChecked] = useState(false)
+  const [external, setExternal] = useState<ExternalCreate | null>(null)
+  const [externalChecked, setExternalChecked] = useState(false)
+  const [externalError, setExternalError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let active = true
+    const capture = async () => {
+      try {
+        const request = await captureExternalCreate(window.location.href, localStorage, sessionStorage)
+        if (!active) return
+        if (request) window.history.replaceState(window.history.state, '', externalCreatePath(request))
+        setExternal(request)
+      } catch (err) {
+        if (active) setExternalError(err instanceof Error && !(err instanceof DOMException) ? err.message : '공유 주소를 보관할 수 없습니다. 브라우저 저장소를 허용한 뒤 다시 열어주세요.')
+      } finally {
+        if (active) setExternalChecked(true)
+      }
+    }
+    void capture()
+    return () => { active = false }
+  }, [])
 
   useEffect(() => {
     api
@@ -18,19 +41,21 @@ function Home() {
       .finally(() => setChecked(true))
   }, [])
 
-  if (!checked) return null
-  return me ? <Dashboard me={me} /> : <Landing />
+  if (!checked || !externalChecked) return null
+  return me ? <Dashboard me={me} external={external} externalError={externalError} /> : <Landing external={external} error={externalError} />
 }
 
 /**
  * The public landing page. Deliberately a page rather than an immediate bounce
  * to Kakao: a Visitor who lands here by accident needs somewhere to stand.
  */
-function Landing() {
+function Landing({ external, error }: { external: ExternalCreate | null; error: string | null }) {
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center px-6 text-center">
       <h1 className="text-4xl font-bold tracking-tight">to2.at</h1>
       <p className="mt-3 text-sm text-zinc-500">카카오 계정으로 만드는 짧은 주소</p>
+      {external && <p className="mt-6 text-sm">카카오로 로그인하면 전달받은 공유 주소를 짧게 만들고 복사합니다.</p>}
+      {error && <p className="mt-6 text-sm text-red-600" role="alert">{error}</p>}
       <button
         type="button"
         onClick={startKakaoLogin}
@@ -42,7 +67,7 @@ function Landing() {
   )
 }
 
-function Dashboard({ me }: { me: Me }) {
+function Dashboard({ me, external, externalError }: { me: Me; external: ExternalCreate | null; externalError: string | null }) {
   const [links, setLinks] = useState<Link[]>([])
   const [target, setTarget] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -86,6 +111,8 @@ function Dashboard({ me }: { me: Me }) {
         </div>
       </header>
 
+      {external && <ExternalCreateCard request={external} onCreated={reload} />}
+      {externalError && <p className="mt-6 text-sm text-red-600" role="alert">{externalError}</p>}
       <ApiKeys />
 
       <form onSubmit={submit} className="mt-8 flex gap-2">

@@ -7,8 +7,12 @@ import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.SequenceGenerator
 import jakarta.persistence.Table
+import jakarta.persistence.LockModeType
 import java.time.Instant
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Lock
+import org.springframework.data.jpa.repository.Query
+import org.springframework.data.repository.query.Param
 
 /**
  * A person who creates Links, identified by their Kakao account.
@@ -38,4 +42,8 @@ class Owner(
 
 interface OwnerRepository : JpaRepository<Owner, Long> {
     fun findByKakaoSub(kakaoSub: String): Owner?
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select o from Owner o where o.id = :id")
+    fun lockForLinkCreation(@Param("id") id: Long): Owner
 }

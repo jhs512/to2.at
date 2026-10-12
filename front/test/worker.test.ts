@@ -50,6 +50,13 @@ describe('Code matching', () => {
 })
 
 describe('a Visitor opening a Code', () => {
+  it('keeps the entire large share fragment in the browser navigation Target', async () => {
+    const target = 'https://java-viz.oa.gg/web/app/#payload=' + 'x'.repeat(131072) + '%2B%26%3D&mode=java'
+    stubApi(() => json({ code: '1', state: 'ACTIVE', target }))
+    const response = await get('/1')
+    expect(response.status).toBe(200)
+    expect(await response.text()).toContain(`var target = ${JSON.stringify(target)};`)
+  })
   it('sees the destination host before being moved', async () => {
     stubApi(() => json({ code: '1', state: 'ACTIVE', target: 'https://example.com/a/b?c=d' }))
 

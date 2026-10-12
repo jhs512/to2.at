@@ -69,11 +69,11 @@ export const api = {
   revokeApiKey: (id: number) => request<void>(`/api-keys/${id}`, { method: 'DELETE' }),
   me: () => request<Me>('/me'),
   listLinks: () => request<Link[]>('/links'),
-  createLink: (target: string) =>
+  createLink: (target: string, requestId?: string) =>
     request<Link>('/links', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ target }),
+      body: JSON.stringify({ target, requestId }),
     }),
   deleteLink: (code: string) => request<void>(`/links/${code}`, { method: 'DELETE' }),
 }

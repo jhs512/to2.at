@@ -2,7 +2,9 @@ package at.to2.back.link
 
 import at.to2.back.config.AppProperties
 import at.to2.back.owner.OwnerService
+import at.to2.back.owner.OwnerRepository
 import java.time.Instant
+import java.util.UUID
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.Authentication
@@ -17,7 +19,7 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
-data class CreateLinkRequest(val target: String = "")
+data class CreateLinkRequest(val target: String = "", val requestId: UUID? = null)
 data class UpdateLinkRequest(val target: String = "")
 
 data class LinkResponse(
@@ -37,6 +39,7 @@ class LinkController(
     private val ownerService: OwnerService,
     private val validator: TargetValidator,
     private val props: AppProperties,
+    private val owners: OwnerRepository,
 ) {
 
     @PostMapping
@@ -48,9 +51,21 @@ class LinkController(
         val owner = ownerService.requireOwner(auth)
         val target = validator.validate(request.target)
 
-        // No deduplication: the same Target twice is two Links. They may be
-        // shared in different places and deleted independently.
-        val link = links.save(Link(target = target, owner = owner))
+        if (request.requestId != null) {
+            // Serialize this Owner's external creates before looking up the
+            // request: refreshes and concurrent tabs must not allocate twice.
+            owners.lockForLinkCreation(owner.id!!)
+            val existing = links.findByOwnerIdAndCreateRequestId(owner.id!!, request.requestId)
+            if (existing != null) {
+                if (existing.target != target) {
+                    return ResponseEntity.status(HttpStatus.CONFLICT).build()
+                }
+                return ResponseEntity.ok(existing.toResponse(props.shortHost))
+            }
+        }
+
+        // Ordinary creates have no requestId and still allocate separate Links.
+        val link = links.save(Link(target = target, owner = owner, createRequestId = request.requestId))
         return ResponseEntity.status(HttpStatus.CREATED).body(link.toResponse(props.shortHost))
     }
 

@@ -1,5 +1,17 @@
 # to2.at
 
+## 외부 공유 주소 생성·복사
+
+로그인된 카카오 Owner로 공유 주소를 단축하고 복사하려면 다음 주소를 연다:
+
+```js
+const entry = `https://to2.at/?action=create-and-copy#target=${encodeURIComponent(fullShareUrl)}`
+```
+
+`fullShareUrl`은 `#` 이하 콘텐츠를 포함한 전체 URL이다. Target을 한 번 인코딩한다. 쿼리 `?target=...&action=create-and-copy`도 지원하지만 긴 공유 URL은 fragment를 사용한다(Cloudflare HTTP 요청 URL 16KB 제한). 로그인 전 Target을 보관하고 카카오 로그인 복귀 후 자동 생성·복사를 시도한다. 복사가 제한되면 결과와 복사 버튼을 표시한다. 동일 Owner가 같은 외부 공유 주소를 다시 열거나 새로고침하면 같은 Link를 재사용한다. 삭제·Suspension·Target 수정된 Link를 새 Code로 자동 우회하지 않는다.
+
+API `POST /links`의 JSON은 선택적으로 UUID `requestId`를 받는다. 최초 201, 동일 Owner/요청의 재사용 200, Target 불일치 409다. requestId 없는 일반 생성은 기존처럼 같은 Target도 별도 Link를 만든다. Target은 PostgreSQL TEXT/JSON 본문으로 저장·반환하며, 128KiB 이상 hash 포함 공유 주소 왕복을 테스트한다.
+
 카카오 계정으로 만드는 짧은 주소. 용어는 [CONTEXT.md](./CONTEXT.md), 결정 배경은 [docs/adr/](./docs/adr)에 있습니다.
 
 ```
