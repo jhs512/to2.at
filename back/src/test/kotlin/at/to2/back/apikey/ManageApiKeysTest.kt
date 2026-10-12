@@ -106,6 +106,8 @@ class ManageApiKeysTest : IntegrationTest() {
             }.andExpect {
                 status { isUnauthorized() }
                 header { doesNotExist("Location") }
+                jsonPath("$.message") { value("유효한 API 키가 필요합니다.") }
+                header { string("Content-Type", "application/json;charset=UTF-8") }
             }.andReturn().response.contentAsString
             assertFalse(response.contains(authorization))
         }

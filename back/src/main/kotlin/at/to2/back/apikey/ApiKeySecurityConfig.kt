@@ -51,6 +51,7 @@ private class ApiKeyFilter(private val keys: ApiKeyRepository) : OncePerRequestF
             // Generic JSON, without the supplied credential or OAuth redirect.
             response.status = 401
             response.contentType = "application/json"
+            response.characterEncoding = "UTF-8"
             response.writer.write("""{"message":"유효한 API 키가 필요합니다."}""")
             return
         }
