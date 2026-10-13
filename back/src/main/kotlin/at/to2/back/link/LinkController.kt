@@ -18,9 +18,11 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import tools.jackson.databind.JsonNode
 
-data class CreateLinkRequest(val target: String = "", val requestId: UUID? = null)
-data class UpdateLinkRequest(val target: String = "")
+data class CreateLinkRequest(val target: String = "", val requestId: UUID? = null, val name: JsonNode? = null)
+// JsonNode preserves omitted versus explicit null for PATCH fields.
+data class UpdateLinkRequest(val target: JsonNode? = null, val name: JsonNode? = null)
 
 data class LinkResponse(
     val code: String,
@@ -28,6 +30,7 @@ data class LinkResponse(
     val target: String,
     val state: LinkState,
     val createdAt: Instant,
+    val name: String?,
 )
 
 data class ErrorResponse(val message: String)
@@ -50,6 +53,7 @@ class LinkController(
     ): ResponseEntity<LinkResponse> {
         val owner = ownerService.requireOwner(auth)
         val target = validator.validate(request.target)
+        val name = validateName(request.name)
 
         if (request.requestId != null) {
             // Serialize this Owner's external creates before looking up the
@@ -65,7 +69,7 @@ class LinkController(
         }
 
         // Ordinary creates have no requestId and still allocate separate Links.
-        val link = links.save(Link(target = target, owner = owner, createRequestId = request.requestId))
+        val link = links.save(Link(target = target, owner = owner, createRequestId = request.requestId, name = name))
         return ResponseEntity.status(HttpStatus.CREATED).body(link.toResponse(props.shortHost))
     }
 
@@ -95,10 +99,17 @@ class LinkController(
         if (link.owner.id != owner.id || link.state == LinkState.DELETED) {
             return ResponseEntity.notFound().build()
         }
-        val target = validator.validate(request.target)
+        if (request.target == null && request.name == null) {
+            throw InvalidTargetException("대상 URL 또는 이름을 전달해주세요.")
+        }
+        val target = request.target?.let {
+            if (!it.isString) throw InvalidTargetException("대상 URL은 문자열이어야 합니다.")
+            validator.validate(it.asString())
+        }
+        val name = validateName(request.name)
         // A conditional field-only update also handles deletion between read
         // and write, and never overwrites moderation state with a stale copy.
-        if (links.updateOwnedTarget(id, owner.id!!, target) == 0) {
+        if (links.updateOwnedDetails(id, owner.id!!, target, request.name != null, name) == 0) {
             return ResponseEntity.notFound().build()
         }
         return ResponseEntity.ok(links.findById(id).orElseThrow().toResponse(props.shortHost))
@@ -129,6 +140,22 @@ class LinkController(
     @ExceptionHandler(InvalidTargetException::class)
     fun onInvalidTarget(e: InvalidTargetException): ResponseEntity<ErrorResponse> =
         ResponseEntity.badRequest().body(ErrorResponse(e.message ?: "잘못된 주소입니다."))
+
+    @ExceptionHandler(InvalidLinkNameException::class)
+    fun onInvalidName(e: InvalidLinkNameException): ResponseEntity<ErrorResponse> =
+        ResponseEntity.badRequest().body(ErrorResponse(e.message ?: "잘못된 이름입니다."))
+}
+
+class InvalidLinkNameException(message: String) : RuntimeException(message)
+
+private fun validateName(value: JsonNode?): String? {
+    if (value == null || value.isNull) return null
+    if (!value.isString) throw InvalidLinkNameException("이름은 문자열이어야 합니다.")
+    val name = value.asString().trim()
+    if (name.codePointCount(0, name.length) > 100) {
+        throw InvalidLinkNameException("이름은 최대 100자입니다.")
+    }
+    return name.ifEmpty { null }
 }
 
 fun Link.toResponse(shortHost: String) =
@@ -138,4 +165,5 @@ fun Link.toResponse(shortHost: String) =
         target = target,
         state = state,
         createdAt = createdAt,
+        name = name,
     )

@@ -17,6 +17,11 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 
 def code_value(value):
+    if value.startswith("https://to2.at/"):
+        parsed = urllib.parse.urlsplit(value)
+        if parsed.query or parsed.fragment:
+            raise argparse.ArgumentTypeError("Use a plain to2.at short URL without query or fragment")
+        value = parsed.path.lstrip("/")
     if not re.fullmatch(r"[1-9][0-9]*", value) or int(value) > 9223372036854775807:
         raise argparse.ArgumentTypeError("Code must be a positive canonical 64-bit integer")
     return value
@@ -48,7 +53,16 @@ def main(argv=None):
         sub.add_parser(name)
     sub.add_parser("resolve").add_argument("code", type=code_value)
     sub.add_parser("delete").add_argument("code", type=code_value)
-    sub.add_parser("create").add_argument("target")
+    create = sub.add_parser("create")
+    create.add_argument("target")
+    create.add_argument("--name", help="A memorable name stored with this Link")
+    update = sub.add_parser("update", help="Change a Link target while keeping its short URL")
+    update.add_argument("code", type=code_value)
+    update.add_argument("target")
+    update.add_argument("--name", help="Also change the name; omit to preserve it")
+    rename = sub.add_parser("rename", help="Change a Link name without changing its target")
+    rename.add_argument("code", type=code_value)
+    rename.add_argument("name", help="New name; an empty string clears it")
     args = parser.parse_args(argv)
     if args.timeout <= 0:
         parser.error("timeout must be positive")
@@ -75,7 +89,7 @@ def main(argv=None):
             emit({"error": "Cannot access private API key storage"}, sys.stderr)
             return 2
 
-    protected = args.command in {"me", "list", "create", "delete"}
+    protected = args.command in {"me", "list", "create", "update", "rename", "delete"}
     headers = {"Accept": "application/json"}
     api_key = None
     if protected:
@@ -96,12 +110,15 @@ def main(argv=None):
     path = paths.get(args.command)
     if args.command == "resolve":
         path = "/to/" + args.code
-    if args.command == "delete":
+    if args.command in {"delete", "update", "rename"}:
         path = "/links/" + args.code
-    method = {"create": "POST", "delete": "DELETE"}.get(args.command, "GET")
+    method = {"create": "POST", "update": "PATCH", "rename": "PATCH", "delete": "DELETE"}.get(args.command, "GET")
     data = None
-    if args.command == "create":
-        data = json.dumps({"target": args.target}, ensure_ascii=False).encode("utf-8")
+    if args.command in {"create", "update", "rename"}:
+        payload = {} if args.command == "rename" else {"target": args.target}
+        if args.name is not None:
+            payload["name"] = args.name
+        data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         headers["Content-Type"] = "application/json"
     request = urllib.request.Request(args.api_origin + path, headers=headers, data=data, method=method)
     opener = urllib.request.build_opener(NoRedirect())
@@ -134,14 +151,16 @@ def main(argv=None):
                     result["message"] = message
             except (ValueError, AttributeError):
                 pass
-        if method == "POST" and status >= 500:
-            result["outcome"] = "unknown; inspect list before considering another create"
+        elif status == 405 and args.command in {"update", "rename"}:
+            result["error"] = "Link update API is not deployed; keep the existing short URL and verify deployment"
+        if method in {"POST", "PATCH"} and status >= 500:
+            result["outcome"] = "unknown; inspect list before considering another write"
         emit(result, sys.stderr)
         return 1
     except (urllib.error.URLError, TimeoutError, OSError, ValueError):
         result = {"error": "Connection failed or invalid JSON response"}
-        if method == "POST":
-            result["outcome"] = "unknown; inspect list before considering another create"
+        if method in {"POST", "PATCH"}:
+            result["outcome"] = "unknown; inspect list before considering another write"
         emit(result, sys.stderr)
         return 1
 

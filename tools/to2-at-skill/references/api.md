@@ -10,12 +10,20 @@ API 키 기능은 2026-10-13 운영에 배포됐다. 운영에서 키 발급 경
 | resolve Code | GET /to/{code} | 200, code/state/target? | 공개 |
 | me | GET /me | 200, nickname/email? | Bearer API 키 |
 | list | GET /links | 200, Link 배열 | Bearer API 키 |
-| create Target | POST /links, target 문자열 | 201, Link | Bearer API 키 |
+| create Target [--name Name] | POST /links, target 문자열·선택 name | 201, Link | Bearer API 키 |
+| update Code Target [--name Name] | PATCH /links/{code}, target·선택 name | 200, Link | Bearer API 키 |
+| rename Code Name | PATCH /links/{code}, name만 | 200, Link | Bearer API 키 |
 | delete Code | DELETE /links/{code} | 204 | Bearer API 키 |
 
 Link: code, shortUrl, target, state, createdAt. 목록은 최신순이고 DELETED를 제외하며 SUSPENDED는 포함한다. 공개 resolve는 ACTIVE에만 Target을 제공한다. DELETED/SUSPENDED도 200으로 상태를 반환하며 없는 Code는 404다. 삭제 시 없는 Code·다른 Owner의 Code·이미 DELETED인 Code는 모두 404다.
 
+대상 수정 API는 2026-10-13 운영 배포됐다(구현 커밋 6138c8c). code/shortUrl/createdAt과 기존 state를 유지한다. 없는 Code·다른 Owner·DELETED는 거부한다. 운영의 PATCH 배포 여부는 실제 응답으로 확인하며 405이면 미지원으로 보고한다. 개인 등록 키로 PATCH의 유효하지 않은 Code 거부(404)를 확인했고, 실제 운영 Link는 변경하지 않았다. 성공적인 수정과 소유권·상태 유지는 서버 통합 테스트에서 검증됐다.
+
 Target은 http/https이며 to2.at 및 하위 도메인은 거부된다. 서버가 최종 검증하고 400의 message를 반환한다. Code는 양의 정수 정규형으로 앞자리 0을 허용하지 않는다.
+
+## Link 이름
+
+name은 Owner가 기억하기 위한 선택적 이름이다. Owner 목록과 생성·수정 응답에 name: string 또는 null이 포함되며 공개 resolve에는 노출되지 않는다. 앞뒤 공백을 제거하고 최대 100자로 제한한다. POST에서 생략하면 이름 없이 생성한다. PATCH에서 생략한 필드는 유지하고, name이 빈 문자열 또는 null이면 이름을 제거한다. 이름만 수정할 때 target을 보내지 않는다. 기존 외부 생성 requestId의 재시도는 이름을 덮어쓰지 않는다. 이름 지원의 운영 배포 상태는 실제 Owner 목록과 담당 작업의 배포 기록으로 확인한다.
 
 ## 키 수명주기
 

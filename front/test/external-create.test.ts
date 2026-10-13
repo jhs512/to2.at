@@ -13,7 +13,7 @@ function storage() {
 
 const target = 'https://java-viz.oa.gg/web/app/?lang=java#content=abc%2Bdef+ghi&mode=run'
 const entry = (target: string) => `https://to2.at/?action=create-and-copy#target=${encodeURIComponent(target)}`
-const link: Link = { code: '123', shortUrl: 'https://to2.at/123', target, state: 'ACTIVE', createdAt: '2026-10-13T00:00:00Z' }
+const link: Link = { code: '123', shortUrl: 'https://to2.at/123', target, name: null, state: 'ACTIVE', createdAt: '2026-10-13T00:00:00Z' }
 
 describe('external create-and-copy workflow', () => {
   it('preserves a complete share URL and resumes it after Kakao returns to the home page', async () => {

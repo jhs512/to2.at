@@ -35,6 +35,7 @@ class Handler(BaseHTTPRequestHandler):
 
     do_GET = handle_request
     do_POST = handle_request
+    do_PATCH = handle_request
     do_DELETE = handle_request
 
 
@@ -63,7 +64,7 @@ class ContractTest(unittest.TestCase):
             env["TO2_API_KEY"] = api_key
         if key_file:
             env["TO2_API_KEY_FILE"] = key_file
-        return subprocess.run([sys.executable, str(CLI), "--api-origin", self.origin, *args],
+        return subprocess.run([sys.executable, "-X", "utf8", str(CLI), "--api-origin", self.origin, *args],
                               env=env, capture_output=True, text=True, encoding="utf-8")
 
     def test_public_operations_never_send_cookie(self):
@@ -78,6 +79,8 @@ class ContractTest(unittest.TestCase):
                  (("list",), "GET", "/links", 200, []),
                  (("create", "https://example.com/a?x=1"), "POST", "/links", 201,
                   {"code": "7", "shortUrl": "https://to2.at/7"}),
+                 (("update", "https://to2.at/7", "https://example.com/new"), "PATCH", "/links/7", 200,
+                  {"code": "7", "shortUrl": "https://to2.at/7", "target": "https://example.com/new"}),
                  (("delete", "7"), "DELETE", "/links/7", 204, None)]
         for command, method, path, status, payload in cases:
             self.server.answer = (status, payload, None)
@@ -86,8 +89,8 @@ class ContractTest(unittest.TestCase):
             call = self.server.calls[-1]
             self.assertEqual(call[:3], (method, path, "Bearer " + FAKE_KEY))
             self.assertNotIn(FAKE_KEY, result.stdout + result.stderr)
-            if method == "POST":
-                self.assertEqual(json.loads(call[3]), {"target": command[1]})
+            if method in {"POST", "PATCH"}:
+                self.assertEqual(json.loads(call[3]), {"target": command[-1]})
             if method == "DELETE":
                 self.assertEqual(json.loads(result.stdout), {"deleted": "7"})
 
@@ -98,6 +101,23 @@ class ContractTest(unittest.TestCase):
             result = self.run_cli("me", api_key=None, key_file=str(key_path))
             self.assertEqual(result.returncode, 0)
             self.assertEqual(self.server.calls[-1][2], "Bearer " + FAKE_KEY)
+
+    def test_names_are_saved_and_can_change_without_target(self):
+        name = "자바 메모리 실습"
+        cases = [(("create", "https://example.com", "--name", name), "POST", "/links", 201,
+                  {"target": "https://example.com", "name": name}),
+                 (("update", "7", "https://example.com/new", "--name", name), "PATCH", "/links/7", 200,
+                  {"target": "https://example.com/new", "name": name}),
+                 (("rename", "https://to2.at/7", name), "PATCH", "/links/7", 200, {"name": name}),
+                 (("rename", "7", ""), "PATCH", "/links/7", 200, {"name": ""})]
+        for command, method, path, status, payload in cases:
+            self.server.answer = (status, {"code": "7", "name": payload["name"]}, None)
+            result = self.run_cli(*command)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            call = self.server.calls[-1]
+            self.assertEqual(call[:3], (method, path, "Bearer " + FAKE_KEY))
+            self.assertEqual(json.loads(call[3]), payload)
+            self.assertEqual(json.loads(result.stdout)["name"], payload["name"])
 
     def test_missing_or_malformed_key_stops_before_network(self):
         for session in (None, "bad\nBearer injection"):
@@ -118,6 +138,17 @@ class ContractTest(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(len(self.server.calls), 1)
         self.assertIn("unknown", result.stderr)
+
+    def test_update_failure_never_creates_or_deletes_a_link(self):
+        for status in (404, 405, 503):
+            self.server.answer = (status, None, None)
+            before = len(self.server.calls)
+            result = self.run_cli("update", "7", "https://example.com/new")
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(len(self.server.calls), before + 1)
+            self.assertEqual(self.server.calls[-1][:2], ("PATCH", "/links/7"))
+            if status == 405:
+                self.assertIn("not deployed", result.stderr)
 
     def test_bad_target_message_and_missing_code(self):
         self.server.answer = (400, {"message": "Invalid Target"}, None)

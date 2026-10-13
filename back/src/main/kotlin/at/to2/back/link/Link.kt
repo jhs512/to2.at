@@ -58,6 +58,7 @@ class Link(
     @JoinColumn(name = "owner_id", nullable = false)
     var owner: Owner,
     @Column(name = "create_request_id", updatable = false) val createRequestId: UUID? = null,
+    @Column(length = 100) var name: String? = null,
 ) {
     /**
      * The primary key IS the Code. Allocation size is 1 on purpose: the default
@@ -92,15 +93,19 @@ interface LinkRepository : JpaRepository<Link, Long> {
     fun findAllByOwnerIdOrderByIdDesc(ownerId: Long): List<Link>
     fun findByOwnerIdAndCreateRequestId(ownerId: Long, createRequestId: UUID): Link?
 
-    // Update only Target: a concurrent Suspension or deletion must survive.
+    // Update only supplied details: concurrent Suspension/deletion must survive.
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(
-        value = "UPDATE link SET target = :target WHERE id = :id AND owner_id = :ownerId AND state <> 'DELETED'",
+        value = """UPDATE link SET target = COALESCE(:target, target),
+            name = CASE WHEN :updateName THEN :name ELSE name END
+            WHERE id = :id AND owner_id = :ownerId AND state <> 'DELETED'""",
         nativeQuery = true,
     )
-    fun updateOwnedTarget(
+    fun updateOwnedDetails(
         @Param("id") id: Long,
         @Param("ownerId") ownerId: Long,
-        @Param("target") target: String,
+        @Param("target") target: String?,
+        @Param("updateName") updateName: Boolean,
+        @Param("name") name: String?,
     ): Int
 }

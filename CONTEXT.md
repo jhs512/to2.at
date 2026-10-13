@@ -8,6 +8,10 @@
 사용자가 만든 단축 항목 하나. Code와 Target과 Owner를 묶은 것.
 _Avoid_: 단축 URL(그건 Link가 아니라 Link를 가리키는 주소), 숏링크
 
+**Name**:
+Owner가 Link를 기억하기 위해 붙이는 선택적인 이름. Code와 Target과는 별개이며 Visitor에게 공개하지 않는다.
+_Avoid_: 제목, 슬러그, Code 이름
+
 **Code**:
 `to2.at/` 뒤에 붙어 Link 하나를 가리키는 식별자.
 _Avoid_: 슬러그, 해시, 키, ID

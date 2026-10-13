@@ -57,6 +57,7 @@ export interface Link {
   target: string
   state: LinkState
   createdAt: string
+  name: string | null
 }
 
 export const api = {
@@ -77,11 +78,11 @@ export const api = {
       body: JSON.stringify({ target, requestId }),
     }),
   deleteLink: (code: string) => request<void>(`/links/${code}`, { method: 'DELETE' }),
-  updateLink: (code: string, target: string) =>
+  updateLink: (code: string, target: string, name?: string) =>
     request<Link>(`/links/${encodeURIComponent(code)}`, {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ target }),
+      body: JSON.stringify({ target, name }),
     }),
 }
 

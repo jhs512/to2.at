@@ -67,6 +67,18 @@ API는 `Authorization: Bearer <key>`를 받습니다. 원문 대신 검증용 �
 `{"target":"https://example.com/new"}`를 보냅니다. 성공하면 200 LinkResponse를
 반환하고 Code·단축주소·상태를 유지합니다. 본인 Link만 수정할 수 있고 삭제된
 Link는 404로 거부합니다. Suspension 중인 Link는 Target을 바꿔도 중지 상태를 유지합니다.
+
+Link를 기억할 이름은 POST `/links`의 선택적 `name` 필드로 저장합니다.
+Owner 목록과 생성·수정 응답에는 `name: string | null`이 포함됩니다. 공개 이동에는
+이름을 노출하지 않습니다. 이름은 문자열 또는 null이며 앞뒤 공백을 제거한 뒤 최대
+100 Unicode code point입니다. 빈 문자열·공백·null은 이름 없음으로 저장합니다.
+PATCH는 `{"name":"수업 참고자료"}`처럼 이름만, Target만, 둘 다 수정할 수 있습니다.
+생략한 필드는 유지하며 `{}`는 400입니다. 이름을 제거하려면 `{"name":""}` 또는
+`{"name":null}`을 보내고, 전달한 `target:null`은 400으로 거부합니다. 두 필드를 함께
+보내면 원자적으로 저장하고 잘못된 이름/Target은 400 `message`를 반환합니다.
+`requestId` 생성 재시도는 기존 Link의 현재 이름을 반환하며 이름을 덮어쓰지 않습니다.
+CLI의 `create --name`, `update --name`, `rename Code Name`으로도 관리할 수 있습니다.
+Flyway V7은 nullable 이름 컬럼만 추가하므로 기존 Link의 Code·Target·상태는 유지됩니다.
 배포 시 Flyway V5가 API 키 테이블을 추가합니다. 기존 Link/Owner 데이터는
 변경하지 않습니다. 서버 배포 후 프론트 배포, 본인 카카오 로그인과 키 발급,
 로컬 `auth-set` 순서로 운영 적용합니다.
