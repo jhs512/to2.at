@@ -53,6 +53,7 @@ async function handleCode(code: string, request: Request, env: Env): Promise<Res
   try {
     const res = await fetch(`${env.API_ORIGIN}/to/${code}`, {
       headers: { accept: 'application/json' },
+      cache: 'no-store',
     })
     if (res.status === 404) return notFoundPage()
     if (!res.ok) return errorPage()
@@ -84,7 +85,18 @@ export default {
     const url = new URL(request.url)
 
     const code = matchCode(url.pathname)
-    if (code) return handleCode(code, request, env)
+    if (code) {
+      // Apply to HTML, errors and especially crawler 302s. A saved Location
+      // would keep resolving to an old Target after an Owner's edit.
+      const original = await handleCode(code, request, env)
+      const response = new Response(original.body, original)
+      response.headers.set('Cache-Control', 'no-store')
+      response.headers.set('CDN-Cache-Control', 'no-store')
+      response.headers.set('Cloudflare-CDN-Cache-Control', 'no-store')
+      response.headers.set('Pragma', 'no-cache')
+      response.headers.set('Expires', '0')
+      return response
+    }
 
     // Everything else is the SPA. Note this Worker runs ahead of asset serving
     // for all non-asset paths: with the default SPA fallback a browser-typed

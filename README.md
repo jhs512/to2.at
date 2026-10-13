@@ -1,5 +1,11 @@
 # to2.at
 
+## 기존 Target 수정과 캐시
+
+로그인한 Owner는 목록의 **수정** 버튼에서 Target을 바꾸고 저장/취소할 수 있다. 저장 응답으로 해당 행과 같은 Link의 생성 결과 표시를 즉시 갱신하며 Code/shortUrl은 유지한다. Suspension된 Link의 Target을 바꿔도 Suspension은 풀리지 않는다.
+
+Target API는 Spring Security의 `no-cache, no-store, max-age=0, must-revalidate`를 사용한다. 브라우저 API 요청과 Worker의 `/to/{code}` 조회도 `cache: no-store`다. 모든 Code 응답(Interstitial, 크롤러 302, 404/410/502)은 브라우저·CDN `no-store`이며 영구 리다이렉트나 Worker Cache API를 사용하지 않는다. 정적 응답은 `_headers`의 `max-age=0, must-revalidate`로 브라우저의 300초 상한보다 짧게 재검증한다. 다음 단축주소 접속은 저장된 최신 Target을 조회한다. 이미 열린 경유 화면의 타이머, 외부 Target 사이트, 카카오 등의 미리보기 카드 자체 캐시는 원격으로 변경하지 않는다.
+
 ## 외부 공유 주소 생성·복사
 
 로그인된 카카오 Owner로 공유 주소를 단축하고 복사하려면 다음 주소를 연다:

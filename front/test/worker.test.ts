@@ -156,6 +156,41 @@ describe('everything that is not a Code', () => {
 })
 
 describe('caching', () => {
+  it('fetches a fresh Target for both people and crawler redirects after an edit', async () => {
+    let target = 'https://example.com/before#old'
+    const fetchApi = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      expect(init?.cache).toBe('no-store')
+      return json({ code: '1', state: 'ACTIVE', target })
+    })
+    vi.stubGlobal('fetch', fetchApi)
+    const before = await get('/1')
+    expect(await before.text()).toContain('https://example.com/before#old')
+    const oldRedirect = await get('/1', { 'user-agent': 'kakaotalk-scrap/1.0' })
+    expect(oldRedirect.headers.get('location')).toBe('https://example.com/before#old')
+    target = 'https://example.com/after#new'
+    const after = await get('/1')
+    const html = await after.text()
+    expect(html).toContain('https://example.com/after#new')
+    expect(html).not.toContain('https://example.com/before#old')
+    const redirect = await get('/1', { 'user-agent': 'kakaotalk-scrap/1.0' })
+    expect(redirect.status).toBe(302)
+    expect(redirect.headers.get('location')).toBe('https://example.com/after#new')
+    for (const response of [before, oldRedirect, after, redirect]) {
+      expect(response.headers.get('cache-control')).toBe('no-store')
+      expect(response.headers.get('cdn-cache-control')).toBe('no-store')
+      expect(response.headers.get('cloudflare-cdn-cache-control')).toBe('no-store')
+    }
+    expect(fetchApi).toHaveBeenCalledTimes(4)
+  })
+
+  it('does not cache missing deleted suspended or failed resolutions', async () => {
+    for (const response of [new Response('', { status: 404 }), json({ code: '1', state: 'DELETED' }), json({ code: '1', state: 'SUSPENDED' }), new Response('', { status: 500 })]) {
+      stubApi(() => response)
+      const page = await get('/1')
+      expect(page.headers.get('cache-control')).toBe('no-store')
+      expect(page.headers.get('cloudflare-cdn-cache-control')).toBe('no-store')
+    }
+  })
   it('never caches a resolution', async () => {
     stubApi(() => json({ code: '1', state: 'ACTIVE', target: 'https://example.com/' }))
 

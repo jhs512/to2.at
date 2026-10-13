@@ -1,8 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { ApiError, api, logout, startKakaoLogin, type Link, type Me } from '../lib/api'
 import { ApiKeys } from '../components/ApiKeys'
+import { LinkRow } from '../components/LinkRow'
 import { ExternalCreateCard } from '../components/ExternalCreate'
 import { captureExternalCreate, externalCreatePath, type ExternalCreate } from '../lib/external-create'
 
@@ -72,10 +73,21 @@ function Dashboard({ me, external, externalError }: { me: Me; external: External
   const [target, setTarget] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const listVersion = useRef(0)
 
   const reload = useCallback(() => {
-    api.listLinks().then(setLinks).catch(console.error)
+    const version = ++listVersion.current
+    api.listLinks().then((rows) => {
+      if (version === listVersion.current) setLinks(rows)
+    }).catch(console.error)
   }, [])
+
+  function updated(link: Link) {
+    // Ignore a list request started before this save: its Target may be stale.
+    listVersion.current++
+    setLinks((rows) => rows.map((row) => row.code === link.code ? link : row))
+    reload()
+  }
 
   useEffect(reload, [reload])
 
@@ -111,7 +123,7 @@ function Dashboard({ me, external, externalError }: { me: Me; external: External
         </div>
       </header>
 
-      {external && <ExternalCreateCard request={external} onCreated={reload} />}
+      {external && <ExternalCreateCard request={external} onCreated={reload} links={links} />}
       {externalError && <p className="mt-6 text-sm text-red-600" role="alert">{externalError}</p>}
       <ApiKeys />
 
@@ -134,54 +146,12 @@ function Dashboard({ me, external, externalError }: { me: Me; external: External
 
       <ul className="mt-8 divide-y divide-zinc-200 dark:divide-zinc-800">
         {links.map((link) => (
-          <LinkRow key={link.code} link={link} onDelete={() => remove(link.code)} />
+          <LinkRow key={link.code} link={link} onDelete={() => remove(link.code)} onUpdated={updated} />
         ))}
       </ul>
       {links.length === 0 && (
         <p className="mt-8 text-center text-sm text-zinc-500">아직 만든 주소가 없습니다.</p>
       )}
     </main>
-  )
-}
-
-function LinkRow({ link, onDelete }: { link: Link; onDelete: () => void }) {
-  const [copied, setCopied] = useState(false)
-
-  function copy() {
-    navigator.clipboard.writeText(link.shortUrl).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
-    })
-  }
-
-  return (
-    <li className="flex items-center gap-3 py-3">
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span className="font-semibold">{link.shortUrl.replace('https://', '')}</span>
-          {link.state === 'SUSPENDED' && (
-            <span className="rounded bg-red-100 px-1.5 py-0.5 text-xs font-medium text-red-700 dark:bg-red-950 dark:text-red-300">
-              중지됨
-            </span>
-          )}
-        </div>
-        <p className="truncate text-sm text-zinc-500">{link.target}</p>
-        <p className="text-xs text-zinc-400">{new Date(link.createdAt).toLocaleString('ko-KR')}</p>
-      </div>
-      <button
-        type="button"
-        onClick={copy}
-        className="shrink-0 text-sm text-zinc-500 underline underline-offset-4"
-      >
-        {copied ? '복사됨' : '복사'}
-      </button>
-      <button
-        type="button"
-        onClick={onDelete}
-        className="shrink-0 text-sm text-zinc-400 underline underline-offset-4 hover:text-red-600"
-      >
-        삭제
-      </button>
-    </li>
   )
 }

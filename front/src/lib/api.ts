@@ -17,6 +17,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_ORIGIN}${path}`, {
     ...init,
     credentials: 'include',
+    cache: 'no-store',
     headers: { accept: 'application/json', ...(init?.headers ?? {}) },
   })
   if (!res.ok) {
@@ -76,6 +77,12 @@ export const api = {
       body: JSON.stringify({ target, requestId }),
     }),
   deleteLink: (code: string) => request<void>(`/links/${code}`, { method: 'DELETE' }),
+  updateLink: (code: string, target: string) =>
+    request<Link>(`/links/${encodeURIComponent(code)}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ target }),
+    }),
 }
 
 /** Full-page navigation, not fetch: this is an OAuth redirect, not an API call. */

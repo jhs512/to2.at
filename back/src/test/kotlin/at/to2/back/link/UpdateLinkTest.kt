@@ -171,4 +171,33 @@ class UpdateLinkTest : IntegrationTest() {
             header { string("Access-Control-Allow-Methods", org.hamcrest.Matchers.containsString("PATCH")) }
         }
     }
+
+    @Test
+    fun `a saved Target is immediately resolved even with old conditional request headers`() {
+        val link = aLink(owner = anOwner("cache-owner"))
+        val noStore = org.hamcrest.Matchers.containsString("no-store")
+        mvc.get("/to/${link.code}").andExpect {
+            status { isOk() }
+            header { string("Cache-Control", noStore) }
+            jsonPath("$.target") { value(link.target) }
+        }
+        mvc.patch("/links/${link.code}") {
+            with(asOwner("cache-owner"))
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"target":"https://example.com/after-save#new"}"""
+        }.andExpect { status { isOk() }; header { string("Cache-Control", noStore) } }
+        mvc.get("/to/${link.code}") {
+            header("If-None-Match", "\"old-target\"")
+            header("If-Modified-Since", "Wed, 21 Oct 2099 07:28:00 GMT")
+        }.andExpect {
+            status { isOk() }
+            header { string("Cache-Control", noStore) }
+            header { string("Expires", "0") }
+            jsonPath("$.target") { value("https://example.com/after-save#new") }
+        }
+        mvc.get("/links") { with(asOwner("cache-owner")) }.andExpect {
+            header { string("Cache-Control", noStore) }
+            jsonPath("$[0].target") { value("https://example.com/after-save#new") }
+        }
+    }
 }
