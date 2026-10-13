@@ -20,3 +20,7 @@ Resolution: complete
 - Cloudflare Worker `9370cc25-8ae7-440d-9553-2f4be6c9333e` 배포 완료. 운영 API_ORIGIN=https://api.to2.at, 새 UI 자산 index-SokU3dES.js/routes-BVo_Yiw5.js 반영.
 - 운영 읽기 검증: health 200 UP, 공개 /to/1 200 및 Name 필드 없음, /1 일반 200·crawler 302 모두 브라우저/CDN no-store 유지. 새 정적 화면은 max-age=0,must-revalidate이며 Name 입력 코드 포함, QA localhost origin 없음.
 - 운영 인증된 /links 브라우저 탐색은 차단되어 검증으로 주장하지 않는다. 담당 원본 작업이 설치된 개인 스킬의 API 키로 읽기 전용 GET /links의 Name 필드를 별도로 확인하기로 했다. Owner 목록과 쓰기 응답 계약은 실제 PostgreSQL 통합 테스트로 검증했다.
+
+### 2026-10-13 — 운영 Owner 목록 검증 추가
+
+원본 담당 작업이 공식 개인 스킬에 등록된 API 키로 Bearer GET /links를 읽기 전용 호출하여 검증 성공을 보고했다. 반환된 Link 3개 모두 name 필드가 존재했다(`count: 3`, `allHaveNameField: true`). 비밀 키와 사용자 Link는 출력하지 않았으며 실제 운영 Link도 수정하지 않았다. 위 브라우저 점검 제한과 별개로 공식 API 계약의 운영 Name 필드 확인은 완료됐다.
